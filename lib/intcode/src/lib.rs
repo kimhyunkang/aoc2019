@@ -14,6 +14,7 @@ pub fn parse_program(input: &str) -> Vec<isize> {
         .collect()
 }
 
+#[derive(Clone)]
 pub struct VM {
     mem: Vec<isize>,
     pc: usize,
