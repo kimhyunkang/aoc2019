@@ -1,0 +1,21 @@
+[package]
+name = "day13"
+version = "0.1.0"
+edition = "2024"
+default-run = "main"
+
+[dependencies]
+crossterm = "0.28"
+env_logger = "0.11"
+log = "0.4"
+ndarray = "0.16"
+num-derive = "0.4"
+num-traits = "0.2"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
+[[bin]]
+name = "game"
+path = "src/bin/game.rs"
