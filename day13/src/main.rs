@@ -3,7 +3,8 @@
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use day13::{Console, Game, Tile, vm::parse_program};
+use day13::{Console, Game, Tile};
+use intcode::parse_program;
 
 fn main() {
     env_logger::init();

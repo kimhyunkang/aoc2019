@@ -14,7 +14,8 @@ use crossterm::{
     execute, queue,
     terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use day13::{Console, Game, Tile, vm::parse_program};
+use day13::{Console, Game, Tile};
+use intcode::parse_program;
 
 fn main() -> io::Result<()> {
     env_logger::init();
