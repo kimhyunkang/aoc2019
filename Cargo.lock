@@ -248,8 +248,10 @@ dependencies = [
 name = "day17"
 version = "0.1.0"
 dependencies = [
+ "bitvec",
  "env_logger",
  "intcode",
+ "log",
  "ndarray",
 ]
 
