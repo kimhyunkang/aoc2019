@@ -1,21 +1,40 @@
+#![feature(map_try_insert)]
 #![feature(slice_as_array)]
 #![feature(try_blocks)]
 
 use label::Label;
 
-use std::collections::HashMap;
+use std::{
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+};
 
 use ndarray::Array2;
 
 fn main() {
-    println!("Hello, world!");
+    let input = std::fs::read_to_string("input.txt").unwrap();
+    let maze = Maze::parse(&input);
+    println!("1: {}", maze.shortest_path().unwrap());
+    println!("2: {}", maze.recursive_path().unwrap());
+}
+
+#[derive(PartialEq, Eq, Debug)]
+struct Conn {
+    inner: (usize, usize),
+    outer: (usize, usize),
 }
 
 struct Maze {
     grid: Array2<bool>,
     aa: (usize, usize),
     zz: (usize, usize),
-    n_idx: HashMap<Label, [(usize, usize); 2]>,
+    n_idx: HashMap<Label, Conn>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+enum Portal {
+    Inner(Label),
+    Outer(Label),
 }
 
 impl Maze {
@@ -84,11 +103,12 @@ impl Maze {
             }
         }
 
+        let outer = |(r, c)| r == 2 || r == h - 3 || c == 2 || c == w - 3;
         let mut n_idx = HashMap::new();
         let mut aa = None;
         let mut zz = None;
-        for (portal, ps) in name_idx {
-            match (portal.as_str(), &ps[..]) {
+        for (name, ps) in name_idx {
+            match (name.as_str(), &ps[..]) {
                 ("AA", &[p0]) => {
                     aa = Some(p0);
                 }
@@ -96,10 +116,23 @@ impl Maze {
                     zz = Some(p0);
                 }
                 (_, &[p0, p1]) => {
-                    n_idx.insert(portal, [p0, p1]);
+                    let portal = if outer(p0) {
+                        Conn {
+                            inner: p1,
+                            outer: p0,
+                        }
+                    } else if outer(p1) {
+                        Conn {
+                            inner: p0,
+                            outer: p1,
+                        }
+                    } else {
+                        panic!("Invalid portal at {:?} and {:?}", p0, p1);
+                    };
+                    n_idx.insert(name, portal);
                 }
                 _ => {
-                    panic!("Invalid portal instance: {:?}: {:?}", portal.as_str(), ps)
+                    panic!("Invalid portal instance: {:?}: {:?}", name.as_str(), ps)
                 }
             }
         }
@@ -111,6 +144,158 @@ impl Maze {
             zz: zz.unwrap(),
         }
     }
+
+    fn neighbors(&self, (r, c): (usize, usize)) -> impl Iterator<Item = (usize, usize)> {
+        [
+            try { (r.checked_sub(1)?, c) },
+            try { (r, c.checked_sub(1)?) },
+            Some((r + 1, c)),
+            Some((r, c + 1)),
+        ]
+        .into_iter()
+        .filter_map(move |pos| pos.filter(|&p| self.grid.get(p).copied().unwrap_or(false)))
+    }
+
+    fn shortest_path(&self) -> Option<usize> {
+        let mut portals = HashMap::new();
+        for &Conn { inner, outer } in self.n_idx.values() {
+            portals.insert(inner, outer);
+            portals.insert(outer, inner);
+        }
+
+        let mut queue = VecDeque::new();
+        let mut visited = HashSet::new();
+
+        queue.push_back((self.aa, 0));
+        visited.insert(self.aa);
+
+        while let Some((p0, d0)) = queue.pop_front() {
+            if p0 == self.zz {
+                return Some(d0);
+            }
+            for p1 in self.neighbors(p0) {
+                if visited.insert(p1) {
+                    queue.push_back((p1, d0 + 1));
+                }
+            }
+            if let Some(&p1) = portals.get(&p0) {
+                if visited.insert(p1) {
+                    queue.push_back((p1, d0 + 1));
+                }
+            }
+        }
+
+        None
+    }
+
+    fn paths(
+        &self,
+        p_idx: &HashMap<(usize, usize), Portal>,
+        start: (usize, usize),
+    ) -> HashMap<Portal, usize> {
+        let mut queue = VecDeque::new();
+        let mut visited = HashSet::new();
+        let mut paths = HashMap::new();
+
+        queue.push_back((start, 0));
+        visited.insert(start);
+
+        while let Some((p0, d0)) = queue.pop_front() {
+            if let Some(&portal) = p_idx.get(&p0) {
+                paths.insert(portal, d0);
+            }
+
+            for p1 in self.neighbors(p0) {
+                if visited.insert(p1) {
+                    queue.push_back((p1, d0 + 1));
+                }
+            }
+        }
+
+        paths
+    }
+
+    fn all_paths(&self) -> HashMap<Portal, HashMap<Portal, usize>> {
+        let mut p_idx = HashMap::new();
+        let aa = Portal::Outer("AA".into());
+        let zz = Portal::Outer("ZZ".into());
+        p_idx.insert(self.aa, aa);
+        p_idx.insert(self.zz, zz);
+        for (&name, &Conn { inner, outer }) in &self.n_idx {
+            p_idx.insert(inner, Portal::Inner(name));
+            p_idx.insert(outer, Portal::Outer(name));
+        }
+
+        let mut all_paths = HashMap::new();
+        all_paths.insert(aa, self.paths(&p_idx, self.aa));
+        for (&name, &Conn { inner, outer }) in &self.n_idx {
+            all_paths.insert(Portal::Inner(name), self.paths(&p_idx, inner));
+            all_paths.insert(Portal::Outer(name), self.paths(&p_idx, outer));
+        }
+
+        all_paths
+    }
+
+    fn recursive_path(&self) -> Option<usize> {
+        #[derive(PartialEq, Eq, PartialOrd, Ord)]
+        struct Node {
+            dist: Reverse<usize>,
+            vertex: (Portal, usize),
+        }
+
+        let all_paths = self.all_paths();
+
+        let mut queue = BinaryHeap::new();
+        let mut dist = HashMap::new();
+
+        let aa = Portal::Outer("AA".into());
+        let zz = Portal::Outer("ZZ".into());
+        let start = (aa, 0);
+        queue.push(Node {
+            dist: Reverse(0),
+            vertex: start,
+        });
+        dist.insert(start, 0);
+
+        while let Some(node) = queue.pop() {
+            let Node {
+                dist: Reverse(d0),
+                vertex: (p0, depth),
+            } = node;
+
+            if p0 == zz && depth == 0 {
+                return Some(d0);
+            }
+
+            for (&dest, &cost) in all_paths.get(&p0).unwrap() {
+                if dest == aa {
+                    continue;
+                }
+                let (p1, d1) = match dest {
+                    Portal::Inner(l1) => ((Portal::Outer(l1), depth + 1), d0 + cost + 1),
+                    Portal::Outer(l1) => {
+                        if depth == 0 && dest == zz {
+                            ((zz, 0), d0 + cost)
+                        } else if depth > 0 && dest != zz {
+                            ((Portal::Inner(l1), depth - 1), d0 + cost + 1)
+                        } else {
+                            continue;
+                        }
+                    }
+                };
+                let d1_so_far = dist.entry(p1).or_insert(usize::MAX);
+                if d1 < *d1_so_far {
+                    *d1_so_far = d1;
+                    queue.push(Node {
+                        dist: Reverse(d1),
+                        vertex: p1,
+                    });
+                }
+            }
+        }
+
+        None
+    }
 }
 
 mod label {
@@ -120,7 +305,7 @@ mod label {
         hash::{Hash, Hasher},
     };
 
-    #[derive(Clone, Copy, PartialEq, Eq)]
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub struct Label([u8; 2]);
 
     impl Label {
@@ -170,12 +355,77 @@ mod test {
 
     #[test]
     fn test_parse() {
-        let maze = Maze::parse(include_str!("test.txt"));
+        let maze = Maze::parse(include_str!("test1.txt"));
         assert_eq!(maze.aa, (2, 9));
         assert_eq!(maze.zz, (16, 13));
-        dbg!(&maze.n_idx);
-        assert_eq!(maze.n_idx.get("BC"), Some(&[(6, 9), (8, 2)]));
-        assert_eq!(maze.n_idx.get("DE"), Some(&[(10, 6), (13, 2)]));
-        assert_eq!(maze.n_idx.get("FG"), Some(&[(12, 11), (15, 2)]));
+
+        assert_eq!(
+            maze.n_idx.get("BC"),
+            Some(&Conn {
+                inner: (6, 9),
+                outer: (8, 2)
+            })
+        );
+        assert_eq!(
+            maze.n_idx.get("DE"),
+            Some(&Conn {
+                inner: (10, 6),
+                outer: (13, 2)
+            })
+        );
+        assert_eq!(
+            maze.n_idx.get("FG"),
+            Some(&Conn {
+                inner: (12, 11),
+                outer: (15, 2)
+            })
+        );
+    }
+
+    #[test]
+    fn test1() {
+        let maze = Maze::parse(include_str!("test1.txt"));
+        assert_eq!(maze.shortest_path(), Some(23));
+
+        let maze = Maze::parse(include_str!("test2.txt"));
+        assert_eq!(maze.shortest_path(), Some(58));
+    }
+
+    #[test]
+    fn test_all_paths() {
+        let maze = Maze::parse(include_str!("test1.txt"));
+        let paths = maze.all_paths();
+        assert_eq!(
+            paths
+                .get(&Portal::Outer("AA".into()))
+                .unwrap()
+                .get(&Portal::Inner("BC".into()))
+                .copied(),
+            Some(4)
+        );
+
+        assert_eq!(
+            paths
+                .get(&Portal::Outer("BC".into()))
+                .unwrap()
+                .get(&Portal::Inner("DE".into()))
+                .copied(),
+            Some(6)
+        );
+
+        assert_eq!(
+            paths
+                .get(&Portal::Inner("FG".into()))
+                .unwrap()
+                .get(&Portal::Outer("ZZ".into()))
+                .copied(),
+            Some(6)
+        );
+    }
+
+    #[test]
+    fn test2() {
+        let maze = Maze::parse(include_str!("test3.txt"));
+        assert_eq!(maze.recursive_path(), Some(396));
     }
 }
