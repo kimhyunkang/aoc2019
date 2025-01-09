@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    task::Poll,
-};
+use std::collections::{HashMap, VecDeque};
 
 use intcode::{VM, parse_program};
 use log::info;
