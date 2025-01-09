@@ -55,12 +55,12 @@ fn find_oxygen(program: Vec<isize>) -> Option<(VM, usize)> {
                     panic!("VM halted");
                 }
                 match vm.read_port() {
-                    Poll::Ready(0) => {
+                    Some(0) => {
                         info!("Wall");
                         // Wall
                         continue;
                     }
-                    Poll::Ready(1) => {
+                    Some(1) => {
                         info!("Success");
                         // Move successful
                         dist_map.insert(p1, Entry {
@@ -69,15 +69,15 @@ fn find_oxygen(program: Vec<isize>) -> Option<(VM, usize)> {
                         });
                         queue.push_back(p1);
                     }
-                    Poll::Ready(2) => {
+                    Some(2) => {
                         info!("Found");
                         // Found
                         return Some((vm, dist0 + 1));
                     }
-                    Poll::Ready(n) => {
+                    Some(n) => {
                         panic!("VM returned {}", n);
                     }
-                    Poll::Pending => {
+                    None => {
                         panic!("VM did not return output");
                     }
                 }
@@ -119,12 +119,12 @@ fn fill_oxygen(vm: VM) -> usize {
                     panic!("VM halted");
                 }
                 match vm.read_port() {
-                    Poll::Ready(0) => {
+                    Some(0) => {
                         info!("Wall");
                         // Wall
                         continue;
                     }
-                    Poll::Ready(1 | 2) => {
+                    Some(1 | 2) => {
                         info!("Success");
                         // Move successful
                         if max_dist < dist0 + 1 {
@@ -136,10 +136,10 @@ fn fill_oxygen(vm: VM) -> usize {
                         });
                         queue.push_back(p1);
                     }
-                    Poll::Ready(n) => {
+                    Some(n) => {
                         panic!("VM returned {}", n);
                     }
-                    Poll::Pending => {
+                    None => {
                         panic!("VM did not return output");
                     }
                 }

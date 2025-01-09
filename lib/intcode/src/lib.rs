@@ -79,12 +79,8 @@ impl VM {
         self.input.extend(buf);
     }
 
-    pub fn read_port(&mut self) -> Poll<isize> {
-        if let Some(n) = self.output.pop_front() {
-            Poll::Ready(n)
-        } else {
-            Poll::Pending
-        }
+    pub fn read_port(&mut self) -> Option<isize> {
+        self.output.pop_front()
     }
 
     pub fn read_exact(&mut self, buf: &mut [isize]) -> Poll<()> {
