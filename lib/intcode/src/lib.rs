@@ -107,6 +107,8 @@ impl VM {
         };
 
         if op == 99 {
+            debug!("[99]");
+            debug!("Halt");
             return Poll::Ready(Err(VMError::Halt));
         }
         match op {
