@@ -1,14 +1,18 @@
 // @
 //  ABCDEFGHI
+// J=!(A&B&C) & D & (E|H)
 
+// Jump only when we need to
 // J=!(A&B&C)
 NOT T J
 AND A J
 AND B J
 AND C J
 NOT J J
+// Jump only when we can land
 // J&=D
 AND D J
+// Jump only when we have the next step (E=walk, H=jump again)
 // T=E|H
 OR E T
 OR H T
