@@ -1,0 +1,17 @@
+// @
+//  ABCDEFGHI
+
+// J=!(A&B&C)
+NOT T J
+AND A J
+AND B J
+AND C J
+NOT J J
+// J&=D
+AND D J
+// T=E|H
+OR E T
+OR H T
+// J&=T
+AND T J
+RUN
