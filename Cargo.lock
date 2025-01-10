@@ -293,6 +293,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "day22"
+version = "0.1.0"
+dependencies = [
+ "once_cell",
+ "regex",
+]
+
+[[package]]
 name = "enum_stringify"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
