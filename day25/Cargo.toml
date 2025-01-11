@@ -1,0 +1,22 @@
+[package]
+name = "day25"
+version = "0.1.0"
+edition = "2024"
+default-run = "main"
+
+[dependencies]
+env_logger = "0.11"
+intcode = { path = "../lib/intcode" }
+rustyline = "15"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
+[[bin]]
+name = "game"
+path = "src/bin/game.rs"
+
+[[bin]]
+name = "scan"
+path = "src/bin/scan.rs"
