@@ -5,8 +5,10 @@ edition = "2024"
 default-run = "main"
 
 [dependencies]
+bitvec = "1"
 env_logger = "0.11"
 intcode = { path = "../lib/intcode" }
+log = "0.4"
 rustyline = "15"
 
 [[bin]]
